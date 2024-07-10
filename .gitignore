@@ -1,0 +1,28 @@
+
+.cache/
+.vscode/
+*.log
+__pycache__/
+data/
+
+.DS_Store
+.idea
+
+# CMake
+cmake-build-*/
+build/
+
+# Mongo Explorer plugin
+.idea/**/mongoSettings.xml
+
+# File-based project format
+*.iws
+
+# IntelliJ
+out/
+
+# mpeltonen/sbt-idea plugin
+.idea_modules/
+
+# JIRA plugin
+atlassian-ide-plugin.xml

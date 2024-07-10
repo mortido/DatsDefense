@@ -1,0 +1,11 @@
+BasedOnStyle: Google
+IndentWidth: 2
+ColumnLimit: 100
+AccessModifierOffset: -1
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortCaseLabelsOnASingleLine: true
+BreakConstructorInitializers: BeforeColon
+FixNamespaceComments: true
+BreakConstructorInitializersBeforeComma: true
+IncludeBlocks: Regroup
+SortIncludes: CaseSensitive
