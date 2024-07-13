@@ -366,7 +366,7 @@ class span FLATBUFFERS_FINAL_CLASS {
 
   // Returns a pointer to the beginning of the sequence.
   FLATBUFFERS_CONSTEXPR_CPP11 pointer data() const FLATBUFFERS_NOEXCEPT {
-    return data_;
+    return data;
   }
 
   #if !defined(FLATBUFFERS_SPAN_MINIMAL)
@@ -383,11 +383,11 @@ class span FLATBUFFERS_FINAL_CLASS {
   }
 
   FLATBUFFERS_CONSTEXPR_CPP11 span(const span &other) FLATBUFFERS_NOEXCEPT
-      : data_(other.data_), count_(other.count_) {}
+      : data(other.data), count_(other.count_) {}
 
   FLATBUFFERS_CONSTEXPR_CPP14 span &operator=(const span &other)
       FLATBUFFERS_NOEXCEPT {
-    data_ = other.data_;
+    data = other.data;
     count_ = other.count_;
   }
 
@@ -400,7 +400,7 @@ class span FLATBUFFERS_FINAL_CLASS {
   // or if (extent != flatbuffers::dynamic_extent && count != extent).
   FLATBUFFERS_CONSTEXPR_CPP11
   explicit span(pointer first, size_type count) FLATBUFFERS_NOEXCEPT
-    : data_ (Extent == dynamic_extent ? first : (Extent == count ? first : nullptr)),
+    : data (Extent == dynamic_extent ? first : (Extent == count ? first : nullptr)),
       count_(Extent == dynamic_extent ? count : (Extent == count ? Extent : 0)) {
       // Make span empty if the count argument is incompatible with span<T,N>.
   }
@@ -408,7 +408,7 @@ class span FLATBUFFERS_FINAL_CLASS {
   // Exclude this code if MSVC2010 is active. The MSVC2010 isn't C++11
   // compliant, it doesn't support default template arguments for functions.
   #if defined(FLATBUFFERS_SPAN_MINIMAL)
-  FLATBUFFERS_CONSTEXPR_CPP11 span() FLATBUFFERS_NOEXCEPT : data_(nullptr),
+  FLATBUFFERS_CONSTEXPR_CPP11 span() FLATBUFFERS_NOEXCEPT : data(nullptr),
                                                             count_(0) {
     static_assert(extent == 0 || extent == dynamic_extent, "invalid span");
   }
@@ -420,7 +420,7 @@ class span FLATBUFFERS_FINAL_CLASS {
   // A dummy template argument N is need dependency for SFINAE.
   template<std::size_t N = 0,
     typename internal::is_span_convertible<element_type, Extent, element_type, (N - N)>::type = 0>
-  FLATBUFFERS_CONSTEXPR_CPP11 span() FLATBUFFERS_NOEXCEPT : data_(nullptr),
+  FLATBUFFERS_CONSTEXPR_CPP11 span() FLATBUFFERS_NOEXCEPT : data(nullptr),
                                                             count_(0) {
     static_assert(extent == 0 || extent == dynamic_extent, "invalid span");
   }
@@ -434,22 +434,22 @@ class span FLATBUFFERS_FINAL_CLASS {
   template<std::size_t N,
     typename internal::is_span_convertible<element_type, Extent, element_type, N>::type = 0>
   FLATBUFFERS_CONSTEXPR_CPP11 span(element_type (&arr)[N]) FLATBUFFERS_NOEXCEPT
-      : data_(arr), count_(N) {}
+      : data(arr), count_(N) {}
 
   template<class U, std::size_t N,
     typename internal::is_span_convertible<element_type, Extent, U, N>::type = 0>
   FLATBUFFERS_CONSTEXPR_CPP11 span(std::array<U, N> &arr) FLATBUFFERS_NOEXCEPT
-     : data_(arr.data()), count_(N) {}
+     : data(arr.data()), count_(N) {}
 
   //template<class U, std::size_t N,
   //  int = 0>
   //FLATBUFFERS_CONSTEXPR_CPP11 span(std::array<U, N> &arr) FLATBUFFERS_NOEXCEPT
-  //   : data_(arr.data()), count_(N) {}
+  //   : data(arr.data()), count_(N) {}
 
   template<class U, std::size_t N,
     typename internal::is_span_convertible<element_type, Extent, U, N>::type = 0>
   FLATBUFFERS_CONSTEXPR_CPP11 span(const std::array<U, N> &arr) FLATBUFFERS_NOEXCEPT
-    : data_(arr.data()), count_(N) {}
+    : data(arr.data()), count_(N) {}
 
   // Converting constructor from another span s;
   // the resulting span has size() == s.size() and data() == s.data().
@@ -466,7 +466,7 @@ class span FLATBUFFERS_FINAL_CLASS {
 
  private:
   // This is a naive implementation with 'count_' member even if (Extent != dynamic_extent).
-  pointer const data_;
+  pointer const data;
   size_type count_;
 };
 #endif  // defined(FLATBUFFERS_USE_STD_SPAN)

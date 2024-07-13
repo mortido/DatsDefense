@@ -16,7 +16,7 @@ class Game {
   explicit Game(std::string game_id)
       : id_{std::move(game_id)}
       , log_file_{"data/game_" + id_ + ".log"}
-      , dump_file_{"data/game_" + id_ + ".dump"} {
+      , dump_file_{"data/game_" + id_ + ".dump", std::ios::app} {
     loguru::add_file(log_file_.c_str(), loguru::Append, loguru::Verbosity_MAX);
   }
 
@@ -27,9 +27,15 @@ class Game {
   }
 
   bool run(net::Api &api) {
-    load(api);
+    if (!load(api)){
+      return true;
+    }
+
     try {
       game_loop(api);
+    } catch (const net::ApiError &e) {
+      LOG_FATAL("API Exception occurred in game loop: %s", e.what());
+      throw e;
     } catch (const std::exception &e) {
       LOG_FATAL("Exception occurred in game loop: %s", e.what());
       return false;
@@ -45,7 +51,7 @@ class Game {
   std::string team_name_;
   models::State state_;
 
-  void load(net::Api &api);
+  bool load(net::Api &api);
   void game_loop(net::Api &api);
 };
 

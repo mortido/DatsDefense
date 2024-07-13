@@ -849,7 +849,7 @@ public:
     //! Constructor for copy-string from a string object (i.e. do make a copy of string)
     /*! \note Requires the definition of the preprocessor symbol \ref RAPIDJSON_HAS_STDSTRING.
      */
-    GenericValue(const std::basic_string<Ch>& s, Allocator& allocator) : data_() { SetStringRaw(StringRef(s), allocator); }
+    GenericValue(const std::basic_string<Ch>& s, Allocator& allocator) : data() { SetStringRaw(StringRef(s), allocator); }
 #endif
 
     //! Constructor for Array.
@@ -858,9 +858,9 @@ public:
         \note \c Array is always pass-by-value.
         \note the source array is moved into this value and the sourec array becomes empty.
     */
-    GenericValue(Array a) RAPIDJSON_NOEXCEPT : data_(a.value_.data_) {
-        a.value_.data_ = Data();
-        a.value_.data_.f.flags = kArrayFlag;
+    GenericValue(Array a) RAPIDJSON_NOEXCEPT : data_(a.value_.data) {
+        a.value_.data = Data();
+        a.value_.data.f.flags = kArrayFlag;
     }
 
     //! Constructor for Object.
@@ -869,9 +869,9 @@ public:
         \note \c Object is always pass-by-value.
         \note the source object is moved into this value and the sourec object becomes empty.
     */
-    GenericValue(Object o) RAPIDJSON_NOEXCEPT : data_(o.value_.data_) {
-        o.value_.data_ = Data();
-        o.value_.data_.f.flags = kObjectFlag;
+    GenericValue(Object o) RAPIDJSON_NOEXCEPT : data_(o.value_.data) {
+        o.value_.data = Data();
+        o.value_.data.f.flags = kObjectFlag;
     }
 
     //! Destructor.
@@ -2215,7 +2215,7 @@ private:
     }
 
     void DoReserveMembers(SizeType newCapacity, Allocator& allocator) {
-        ObjectData& o = data_.o;
+        ObjectData& o = data.o;
         if (newCapacity > o.capacity) {
             Member* oldMembers = GetMembersPointer();
             Map **oldMap = oldMembers ? &GetMap(oldMembers) : 0,
@@ -2229,7 +2229,7 @@ private:
     MemberIterator DoFindMember(const GenericValue<Encoding, SourceAllocator>& name) {
         if (Member* members = GetMembersPointer()) {
             Map* &map = GetMap(members);
-            MapIterator mit = map->find(reinterpret_cast<const Data&>(name.data_));
+            MapIterator mit = map->find(reinterpret_cast<const Data&>(name.data));
             if (mit != map->end()) {
                 return MemberIterator(&members[mit->second]);
             }
@@ -2241,18 +2241,18 @@ private:
         if (Member* members = GetMembersPointer()) {
             Map* &map = GetMap(members);
             MapIterator* mit = GetMapIterators(map);
-            for (SizeType i = 0; i < data_.o.size; i++) {
+            for (SizeType i = 0; i < data.o.size; i++) {
                 map->erase(DropMapIterator(mit[i]));
                 members[i].~Member();
             }
-            data_.o.size = 0;
+            data.o.size = 0;
         }
     }
 
     void DoFreeMembers() {
         if (Member* members = GetMembersPointer()) {
             GetMap(members)->~Map();
-            for (SizeType i = 0; i < data_.o.size; i++) {
+            for (SizeType i = 0; i < data.o.size; i++) {
                 members[i].~Member();
             }
             if (Allocator::kNeedFree) { // Shortcut by Allocator's trait
@@ -2312,7 +2312,7 @@ private:
 #if RAPIDJSON_USE_MEMBERSMAP
         Map* &map = GetMap(members);
         MapIterator* mit = GetMapIterators(map);
-        new (&mit[o.size]) MapIterator(map->insert(MapPair(m->name.data_, o.size)));
+        new (&mit[o.size]) MapIterator(map->insert(MapPair(m->name.data, o.size)));
 #endif
         ++o.size;
     }
@@ -2391,7 +2391,7 @@ private:
             new (&lm[i].name) GenericValue(rm[i].name, allocator, copyConstStrings);
             new (&lm[i].value) GenericValue(rm[i].value, allocator, copyConstStrings);
 #if RAPIDJSON_USE_MEMBERSMAP
-            new (&mit[i]) MapIterator(map->insert(MapPair(lm[i].name.data_, i)));
+            new (&mit[i]) MapIterator(map->insert(MapPair(lm[i].name.data, i)));
 #endif
         }
         data_.o.size = data_.o.capacity = count;
@@ -2422,7 +2422,7 @@ private:
             Map* &map = GetMap(m);
             MapIterator* mit = GetMapIterators(map);
             for (SizeType i = 0; i < count; i++) {
-                new (&mit[i]) MapIterator(map->insert(MapPair(m[i].name.data_, i)));
+                new (&mit[i]) MapIterator(map->insert(MapPair(m[i].name.data, i)));
             }
 #endif
         }
@@ -2458,7 +2458,7 @@ private:
     //! Assignment without calling destructor
     void RawAssign(GenericValue& rhs) RAPIDJSON_NOEXCEPT {
         data_ = rhs.data_;
-        // data_.f.flags = rhs.data_.f.flags;
+        // data.f.flags = rhs.data.f.flags;
         rhs.data_.f.flags = kNullFlag;
     }
 
