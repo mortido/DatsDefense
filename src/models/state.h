@@ -3,11 +3,12 @@
 #include <rapidjson/document.h>
 
 #include <vector>
+#include <optional>
 
+#include "api/requests.h"
 #include "logger.h"
 #include "models/map.h"
 #include "models/player.h"
-#include "models/requests.h"
 #include "models/vec2i.h"
 #include "models/zombie.h"
 
@@ -28,21 +29,21 @@ struct State {
 
   std::vector<vec2i> build_command;
   std::optional<vec2i> move_base_command;
-  std::vector<AttackCommand> attack_command;
+  std::vector<api::AttackCommand> attack_command;
 
   bool update_from_json(const rapidjson::Document& doc);
 
   void init_from_json(const rapidjson::Document& doc);
 
-  Command get_action() {
-    return models::Command{
+  api::Command get_action() {
+    return api::Command{
         .attack = attack(),
         .build = build(),
         .move_base = move_base(),
     };
   }
 
-  const std::vector<AttackCommand>& attack() {
+  const std::vector<api::AttackCommand>& attack() {
     attack_command.clear();
     for (size_t i : map.my_active_buildings) {
       const auto& b = map.buildings[i];
@@ -60,8 +61,8 @@ struct State {
       }
       if (best_score > 0.0) {
         attack_command.emplace_back(
-            AttackCommand{.block_id = b.id, .target = target, .source = b.position});
-        map.attack(target, b.attack);
+            api::AttackCommand{.block_id = b.id, .target = target, .source = b.position});
+        me.gold+=map.attack(target, b.attack);
       }
     }
     return attack_command;
@@ -128,9 +129,6 @@ struct State {
       if (me.gold > 0) {
         build_command.push_back(candidate.position);
         me.gold--;
-        // You may want to update the map state here to reflect the new building
-        // map.add_building(Building(/* initialize building at candidate.position */));
-        // Recalculate build candidates if necessary
       }
     }
     return build_command;
@@ -169,32 +167,57 @@ struct State {
 
     // Calculate the centroid of the main cluster
     vec2d centroid{0.0, 0.0};
+    double all_health = 0.0;
     size_t main_cluster_size = 0;
 
     for (size_t i : map.my_active_buildings) {
       if (map.clusters->find(i) == map.clusters->find(map.my_base)) {
-        centroid += to_vec2d(map.buildings[i].position);
+        centroid += to_vec2d(map.buildings[i].position) * map.buildings[i].health;
+        all_health += map.buildings[i].health;
         main_cluster_size++;
       }
     }
     if (main_cluster_size > 0) {
-      centroid /= static_cast<double>(main_cluster_size);
+//      centroid /= static_cast<double>(main_cluster_size);
+      centroid /= all_health;
     }
 
     vec2i new_pos = map.buildings.at(map.my_base).position;
-    double danger = map.at(new_pos).danger_score;
+    double best_score = std::numeric_limits<double>::max();
     double distance_to_centroid = (to_vec2d(new_pos) - centroid).length();
+
+    auto calculate_score = [&](const vec2i& pos) {
+      double danger = map.at(pos).danger_score * map.at(pos).danger_multiplier;
+      double dist_to_centroid = (to_vec2d(pos) - centroid).length();
+
+      // Calculate penalty for being close to spawns
+      double min_distance_to_spawn = 1000.0;
+      for (const auto& spawn : map.spawns) {
+        double distance_to_spawn = (pos - spawn).sq_length();
+        if (distance_to_spawn < min_distance_to_spawn) {
+          min_distance_to_spawn = distance_to_spawn;
+        }
+      }
+
+      return 10.0*danger + dist_to_centroid - std::sqrt(min_distance_to_spawn);
+    };
 
     for (size_t i : map.my_active_buildings) {
       const auto& p = map.buildings[i].position;
-      double d = map.at(p).danger_score * map.at(p).danger_multiplier;
-      double dist = (to_vec2d(p) - centroid).length();
-      if (d < danger || (d == danger && dist < distance_to_centroid)) {
-        danger = d;
-        distance_to_centroid = dist;
+      double score = calculate_score(p);
+      if (score < best_score) {
+        best_score = score;
         new_pos = p;
       }
     }
+
+//    for (const auto& p : build_command) {
+//      double score = calculate_score(p);
+//      if (score < best_score) {
+//        best_score = score;
+//        new_pos = p;
+//      }
+//    }
 
     if (new_pos == map.buildings.at(map.my_base).position) {
       move_base_command.reset();
@@ -250,7 +273,7 @@ struct State {
     }
 
     // Draw base move command
-    rc.switch_to_layer(7);
+    rc.switch_to_layer(8);
     if (move_base_command) {
       vec2i current_position = map.buildings.at(map.my_base).position;
       vec2d start = to_vec2d(current_position) + vec2d{0.5, 0.5};

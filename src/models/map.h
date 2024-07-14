@@ -12,7 +12,7 @@
 
 namespace mortido::models {
 
-constexpr static size_t kLookAhead = 20;
+constexpr static size_t kLookAhead = 10;
 constexpr static double kTimeFactor = 0.9;
 
 struct Cell {
@@ -289,6 +289,9 @@ class Map {
                kLookAhead, kTimeFactor, proto_zombie[zombie.type].wait_turns)) {
         if (on_map(future_pos.pos)) {
           auto& cell = at(future_pos.pos);
+          if (cell.type != Cell::Type::normal) {
+            break;
+          }
           if (cell.building >= 0) {
             cell.danger_score += future_pos.damage;
             if (!buildings[cell.building].is_enemy) {
@@ -421,15 +424,22 @@ class Map {
     return attack_cache_[range];
   }
 
-  void attack(const vec2i& pos, int power) {
+  int attack(const vec2i& pos, int power) {
+    int gold = 0;
     auto& cell = at(pos);
     if (cell.building >= 0 && buildings.at(cell.building).is_enemy) {
       buildings.at(cell.building).damage_taken += power;
     }
     for (size_t z_i : cell.zombies) {
       auto& zombie = zombies.at(z_i);
-      zombie.damage_taken += power;
+      if (zombie.health > zombie.damage_taken) {
+        zombie.damage_taken += power;
+        if (zombie.health <= zombie.damage_taken) {
+          gold++;
+        }
+      }
     }
+    return gold;
   }
 
   double get_attack_score(const vec2i& pos, int power) {

@@ -4,7 +4,7 @@ file(GLOB_RECURSE SOURCE_FILES "**.cpp")
 file(GLOB_RECURSE HEADER_FILES "**.h")
 
 set(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR})
-add_executable(${APP_NAME} ${SOURCE_FILES} ${HEADER_FILES} models/responses.h models/json_utils.h models/requests.h models/zombie.h models/player.h models/map.h models/vec2d.h)
+add_executable(${APP_NAME} ${SOURCE_FILES} ${HEADER_FILES} api/responses.h api/requests.h models/zombie.h models/player.h models/map.h models/vec2d.h)
 target_compile_features(${APP_NAME} PUBLIC cxx_std_20)
 
 include(FindPkgConfig)
