@@ -18,6 +18,7 @@ namespace mortido::models {
 struct FuturePosition {
   vec2i pos;
   vec2i dir;
+  int step;
   double damage;
 };
 
@@ -81,10 +82,12 @@ struct Zombie {
     FuturePosition state{
         position,
         direction,
+        0,
         static_cast<double>(attack),
     };
     int temp_w = wait_turns;
     for (size_t i = 0; i < turns; i++) {
+      state.step = i;
       if (--temp_w <= 0) {
         temp_w = wait;
         if (type == Type::chaos_knight) {

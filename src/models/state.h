@@ -4,12 +4,14 @@
 
 #include <vector>
 #include <optional>
+#include <chrono>
 
 #include "api/requests.h"
 #include "logger.h"
 #include "models/map.h"
 #include "models/player.h"
 #include "models/vec2i.h"
+#include "models/vec2d.h"
 #include "models/zombie.h"
 
 #ifdef DRAW

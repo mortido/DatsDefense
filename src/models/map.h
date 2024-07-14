@@ -285,8 +285,11 @@ class Map {
         proto_zombie[zombie.type].update_proto(zombie);
       }
 
-      for (const auto& future_pos : zombie.get_future_positions(
-               kLookAhead, kTimeFactor, proto_zombie[zombie.type].wait_turns)) {
+      auto future_positions = zombie.get_future_positions(kLookAhead, kTimeFactor,
+                                                          proto_zombie[zombie.type].wait_turns);
+
+      for (size_t fp = 0; fp < future_positions.size(); fp++) {
+        const auto& future_pos = future_positions[fp];
         if (on_map(future_pos.pos)) {
           auto& cell = at(future_pos.pos);
           if (cell.type != Cell::Type::normal) {
@@ -326,7 +329,9 @@ class Map {
             }
 
             if (zombie.type != Zombie::Type::juggernaut &&
-                zombie.type != Zombie::Type::chaos_knight) {
+                zombie.type != Zombie::Type::chaos_knight &&
+                (fp + 1 >= future_positions.size() ||
+                 future_positions[fp + 1].step != future_pos.step)) {
               break;
             }
           } else {
