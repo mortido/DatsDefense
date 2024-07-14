@@ -297,7 +297,8 @@ class Map {
           }
           if (cell.building >= 0) {
             cell.danger_score += future_pos.damage;
-            if (!buildings[cell.building].is_enemy) {
+//            if (!buildings[cell.building].is_enemy) {
+            if (my_active_buildings.contains(cell.building)) {
               zombie.danger += future_pos.damage;
             }
 
