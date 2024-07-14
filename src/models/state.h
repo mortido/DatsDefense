@@ -92,16 +92,14 @@ struct State {
       double min_distance_to_spawn = std::numeric_limits<double>::max();
       double min_distance_to_enemy = std::numeric_limits<double>::max();
 
-      if (turn < 240) {
+
         for (const auto& spawn : map.spawns) {
           double distance_to_spawn = (cand - spawn).length();
           if (distance_to_spawn < min_distance_to_spawn) {
             min_distance_to_spawn = distance_to_spawn;
           }
         }
-      } else {
-        min_distance_to_spawn = 0;
-      }
+
 
       for (const auto enemy : map.enemy_buildings) {
         double distance_to_enemy = (cand - map.buildings.at(enemy).position).length();
@@ -110,8 +108,16 @@ struct State {
         }
       }
 
-      double score = danger_score + 0.25 * distance_to_centroid + 0.2 * min_distance_to_spawn -
-                     0.1 * min_distance_to_enemy;
+      double score = danger_score + 0.25 * distance_to_centroid;
+
+      if (turn < 240) {
+        score += 0.2 * min_distance_to_spawn;
+        score += 0.2 * min_distance_to_enemy;
+      } else {
+//        min_distance_to_spawn = 0;
+        score -= 0.2 * min_distance_to_enemy;
+      }
+
       if (nearest_cluster_size > 10) {
         score *= 1.0 / static_cast<double>(nearest_cluster_size);
       }
