@@ -331,7 +331,7 @@ rapidjson::Document Api::perform_request(const std::string &url, const std::stri
       if (!parse_result) {
         LOG_ERROR("JSON parse error: %s, offset: %zu",
                   rapidjson::GetParseError_En(parse_result.Code()), parse_result.Offset());
-        throw ApiError("JSON parse error");
+        continue ;
       }
 
       if (document.HasMember("error") && document["error"].IsString()) {

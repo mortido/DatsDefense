@@ -27,7 +27,7 @@ class Game {
   }
 
   bool run(net::Api &api) {
-    if (!load(api)){
+    if (!lobby(api)){
       return true;
     }
 
@@ -51,7 +51,8 @@ class Game {
   std::string team_name_;
   models::State state_;
 
-  bool load(net::Api &api);
+  bool lobby(net::Api &api);
+  void load(net::Api &api);
   void game_loop(net::Api &api);
 };
 

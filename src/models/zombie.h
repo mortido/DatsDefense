@@ -2,6 +2,7 @@
 #include <rapidjson/document.h>
 
 #include <string>
+#include <random>
 #include <unordered_map>
 
 #include "models/vec2i.h"
@@ -14,6 +15,12 @@
 #endif
 
 namespace mortido::models {
+struct FuturePosition {
+  vec2i pos;
+  vec2i dir;
+  double damage;
+};
+
 struct Zombie {
   enum class Type {
     normal,
@@ -25,12 +32,16 @@ struct Zombie {
   };
   int attack;
   int health;
+  int damage_taken = 0;
   int wait_turns;
 
   std::string id;
   Type type;
-  vec2i velocity;
+  vec2i direction;
+  int speed;
   vec2i position;
+
+  double danger = 1.0;
 
   void update_from_json(const rapidjson::Value& value) {
     static const std::unordered_map<std::string, Type> type_map = {
@@ -39,54 +50,74 @@ struct Zombie {
         {"juggernaut", Type::juggernaut}, {"chaos_knight", Type::chaos_knight},
     };
 
+    damage_taken = 0;
     attack = value["attack"].GetInt();
     health = value["health"].GetInt();
     wait_turns = value["waitTurns"].GetInt();
     id = value["id"].GetString();
     type = type_map.at(value["type"].GetString());
-    int speed = value["speed"].GetInt();
+    speed = value["speed"].GetInt();
     if (type == Type::chaos_knight) {
       speed = 1;  // todo: just in case...
     }
-    std::string direction = value["direction"].GetString();
-    if (direction == "up") {
-      velocity.y = -speed;
-    } else if (direction == "down") {
-      velocity.y = speed;
-    } else if (direction == "left") {
-      velocity.x = -speed;
-    } else if (direction == "right") {
-      velocity.x = speed;
+    std::string str_dir = value["direction"].GetString();
+    if (str_dir == "up") {
+      direction = vec2i(0, -1);
+    } else if (str_dir == "down") {
+      direction = vec2i(0, 1);
+    } else if (str_dir == "left") {
+      direction = vec2i(-1, 0);
+    } else if (str_dir == "right") {
+      direction = vec2i(1, 0);
     }
     position = vec2i{value["x"].GetInt(), value["y"].GetInt()};
   }
 
-  void move() {
-    if (--wait_turns > 0) {
-      return;
+  std::vector<FuturePosition> get_future_positions(size_t turns, double time_factor, int wait) {
+    static std::mt19937 rng(std::random_device{}());
+    static std::uniform_int_distribution<int> dist(0, 1);
+
+    std::vector<FuturePosition> result;
+    FuturePosition state{
+        position,
+        direction,
+        static_cast<double>(attack),
+    };
+    int temp_w = wait_turns;
+    for (size_t i = 0; i < turns; i++) {
+      if (--temp_w <= 0) {
+        temp_w = wait;
+        if (type == Type::chaos_knight) {
+          for (int step = 0; step < 2; step++) {
+            state.pos.add(state.dir);
+          }
+
+          //todo: probability
+          if (dist(rng) == 0) {
+            state.dir.rotate90ccw();
+          } else {
+            state.dir.rotate90cw();
+          }
+          state.pos.add(state.dir);
+          result.emplace_back(state);
+        } else {
+          // Normal movement for other types
+          for (int step = 0; step < speed; step++) {
+            state.pos.add(state.dir);
+            result.emplace_back(state);
+          }
+        }
+      }
+      state.damage *= time_factor;
     }
-    if (type == Type::chaos_knight) {
-      position += velocity;
-      position += velocity;
-      velocity.rotate90ccw();
-      position += velocity;
-    } else {
-      position += velocity;
-    }
+    return result;
   }
 
-  void move_2() {
-    if (--wait_turns > 0) {
-      return;
-    }
-    if (type == Type::chaos_knight) {
-      position += velocity;
-      position += velocity;
-      velocity.rotate90cw();
-      position += velocity;
-    } else {
-      position += velocity;
-    }
+  void update_proto(const Zombie& other) {
+    attack = std::max(other.attack, attack);
+    health = std::max(other.health, health);
+    speed = std::max(other.speed, speed);
+    wait_turns = std::max(other.wait_turns, wait_turns);
   }
 
 #ifdef DRAW
@@ -128,30 +159,25 @@ struct Zombie {
     vec2d p1, p2, p3;
     double start_angle = 0;
     double end_angle = 0;
-    if (velocity.x == 0 && velocity.y == 0) {
-      // TODO: WTF?
-      p1 = pos + vec2d{0, -size};
-      p2 = pos + vec2d{size, size};
-      p3 = pos + vec2d{-size, size};
-    } else if (velocity.y < 0) {  // Moving up
+    if (direction.y < 0) {  // Moving up
       p1 = pos + vec2d{0, -size};
       p2 = pos + vec2d{size, size};
       p3 = pos + vec2d{-size, size};
       start_angle = 2 * M_PI;
       end_angle = M_PI;
-    } else if (velocity.y > 0) {  // Moving down
+    } else if (direction.y > 0) {  // Moving down
       p1 = pos + vec2d{0, size};
       p2 = pos + vec2d{size, -size};
       p3 = pos + vec2d{-size, -size};
       start_angle = M_PI;
       end_angle = 0;
-    } else if (velocity.x < 0) {  // Moving left
+    } else if (direction.x < 0) {  // Moving left
       p1 = pos + vec2d{-size, 0};
       p2 = pos + vec2d{size, size};
       p3 = pos + vec2d{size, -size};
       start_angle = 3 * M_PI / 2;
       end_angle = M_PI / 2;
-    } else if (velocity.x > 0) {  // Moving right
+    } else if (direction.x > 0) {  // Moving right
       p1 = pos + vec2d{size, 0};
       p2 = pos + vec2d{-size, size};
       p3 = pos + vec2d{-size, -size};

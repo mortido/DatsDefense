@@ -19,6 +19,7 @@ namespace mortido::models {
 struct Building {
   int attack;
   int health;
+  int damage_taken = 0.0;
   bool is_head;
   bool is_enemy;
   int range;
@@ -27,6 +28,8 @@ struct Building {
   std::string id;
   std::optional<vec2i> last_attack;
   vec2i position;
+
+  double danger = 1.0;
 
   void update_from_json(const rapidjson::Value& value) {
     attack = value["attack"].GetInt();
@@ -71,15 +74,15 @@ struct Building {
     // Define colors
     constexpr uint32_t kMyBuildingColor = green::SeaGreen;
     constexpr uint32_t kEnemyBuildingColor = orange::Tomato;
-    constexpr uint32_t kMyAttackColor =  purple::Magenta;
+    constexpr uint32_t kMyAttackColor = purple::Magenta;
     constexpr uint32_t kEnemyAttackColor = blue::Cyan;
     constexpr uint32_t kHeadBuildingCircleColor = yellow::Gold;
     constexpr uint32_t kHealthBarBackgroundColor = gray::DimGray;
     constexpr uint32_t kHealthBarForegroundColor = green::LimeGreen;
 
     rc.switch_to_layer(5);
-    uint32_t color =        is_enemy ? kEnemyBuildingColor : kMyBuildingColor;
-    if (!is_enemy && !is_active){
+    uint32_t color = is_enemy ? kEnemyBuildingColor : kMyBuildingColor;
+    if (!is_enemy && !is_active) {
       rc.set_opacity(100);
     }
     rc.rectangle(to_vec2d(position), vec2d{1.0, 1.0}, color, true);
@@ -93,16 +96,18 @@ struct Building {
     }
 
     // Draw health bar
-    int max_health = is_head ? 300 : 100;
-    double health_ratio = static_cast<double>(health) / max_health;
     vec2d health_bar_pos = to_vec2d(position);
-    vec2d health_bar_size = vec2d{1.0 * health_ratio, 0.1};
     rc.rectangle(health_bar_pos, vec2d{1.0, 0.1}, kHealthBarBackgroundColor, true);
-    rc.rectangle(health_bar_pos, health_bar_size, kHealthBarForegroundColor, true);
+    if (health > 0) {
+      int max_health = is_head ? 300 : 100;
+      double health_ratio = static_cast<double>(health) / max_health;
+      vec2d health_bar_size = vec2d{1.0 * health_ratio, 0.1};
+      rc.rectangle(health_bar_pos, health_bar_size, kHealthBarForegroundColor, true);
+    }
 
     // Draw popup with attack and health points
-    std::string popup_text =
-        "Attack: " + std::to_string(attack) + " Health: " + std::to_string(health);
+    std::string popup_text = "Attack: " + std::to_string(attack) +
+                             " Health: " + std::to_string(health) + " Name:" + player_name;
     rc.popup(to_vec2d(position), vec2d{1.0, 1.0}, popup_text.c_str());
 
     // Draw attack lines

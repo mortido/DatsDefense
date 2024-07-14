@@ -9,6 +9,7 @@ namespace mortido::models {
 struct AttackCommand {
   std::string block_id;
   vec2i target;
+  vec2i source;
 };
 
 struct Command {

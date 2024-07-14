@@ -46,6 +46,7 @@ bool State::update_from_json(const rapidjson::Document& doc) {
 
 void State::init_from_json(const rapidjson::Document& doc) {
   if (doc.HasMember("zpots") && doc["zpots"].IsArray()) {
+    map.clear_spawns_and_walls();
     for (const auto& zp : doc["zpots"].GetArray()) {
       vec2i spot(zp["x"].GetInt(), zp["y"].GetInt());
       std::string type = zp["type"].GetString();

@@ -44,7 +44,7 @@ class Api {
   std::list<std::string> headers_;
   std::queue<std::chrono::steady_clock::time_point> request_times_;
   size_t max_retries_ = 30;
-  size_t max_rps_ = 2;
+  size_t max_rps_ = 3;
   //  double max_rps_ = 4.0;
   //  std::chrono::duration<double> min_interval_ = std::chrono::duration<double>(1.0 / 4.0);
 
