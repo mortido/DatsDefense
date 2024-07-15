@@ -217,7 +217,7 @@ struct State {
               neighbours_score += map.buildings[cell.building].health;
             }
             if (cell.type == Cell::Type::wall) {
-              neighbours_score += 100;
+              neighbours_score += 120;
             } else if (cell.type == Cell::Type::spawn) {
               neighbours_score -= 200;
             }
