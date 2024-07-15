@@ -12,7 +12,7 @@
 
 namespace mortido::models {
 
-constexpr static size_t kLookAhead = 10;
+constexpr static size_t kLookAhead = 20;
 constexpr static double kTimeFactor = 0.9;
 
 struct Cell {
