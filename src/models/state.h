@@ -282,7 +282,7 @@ struct State {
 
     // Draw base move command
     rc.switch_to_layer(8);
-    if (move_base_command) {
+    if (map.my_base >= 0 && move_base_command) {
       vec2i current_position = map.buildings.at(map.my_base).position;
       vec2d start = to_vec2d(current_position) + vec2d{0.5, 0.5};
       vec2d end = to_vec2d(*move_base_command) + vec2d{0.5, 0.5};

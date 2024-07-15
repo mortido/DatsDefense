@@ -35,8 +35,6 @@ void Game::load() {
       dump_file_.flush();
     }
   }
-
-  // todo: print game state (statistics overview)
 }
 
 void Game::game_loop() {
@@ -78,10 +76,11 @@ void Game::game_loop() {
         // todo: :(
         return;
       }
-#ifdef DRAW
-      state_.draw(rc);
-#endif
     }
+
+#ifdef DRAW
+    state_.draw(rc);
+#endif
 
 
 
@@ -96,7 +95,7 @@ void Game::game_loop() {
       dump_file_.flush();
     }
 
-    LOG_INFO("Wait turn to end...");
+    LOG_INFO("Wait turn %d to end...", state_.turn);
     std::this_thread::sleep_until(state_.turn_end_time);
   }
 }

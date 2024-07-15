@@ -100,7 +100,9 @@ class Map {
   std::vector<vec2i> spawns;
   double max_danger;
 
-  Map() : const_time_factor(0.0) {
+  Map()
+      : const_time_factor(0.0)
+      , view_min{std::numeric_limits<int>::max(), std::numeric_limits<int>::max()} {
     straight_directions_.emplace_back(-1, 0);
     straight_directions_.emplace_back(1, 0);
     straight_directions_.emplace_back(0, -1);
@@ -297,7 +299,7 @@ class Map {
           }
           if (cell.building >= 0) {
             cell.danger_score += future_pos.damage;
-//            if (!buildings[cell.building].is_enemy) {
+            //            if (!buildings[cell.building].is_enemy) {
             if (my_active_buildings.contains(cell.building)) {
               zombie.danger += future_pos.damage;
             }
