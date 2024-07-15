@@ -2,16 +2,16 @@
 
 #include <rapidjson/document.h>
 
-#include <vector>
-#include <optional>
 #include <chrono>
+#include <optional>
+#include <vector>
 
 #include "api/requests.h"
 #include "logger.h"
 #include "models/map.h"
 #include "models/player.h"
-#include "models/vec2i.h"
 #include "models/vec2d.h"
+#include "models/vec2i.h"
 #include "models/zombie.h"
 
 #ifdef DRAW
@@ -64,7 +64,7 @@ struct State {
       if (best_score > 0.0) {
         attack_command.emplace_back(
             api::AttackCommand{.block_id = b.id, .target = target, .source = b.position});
-        me.gold+=map.attack(target, b.attack);
+        me.gold += map.attack(target, b.attack);
       }
     }
     return attack_command;
@@ -92,14 +92,12 @@ struct State {
       double min_distance_to_spawn = std::numeric_limits<double>::max();
       double min_distance_to_enemy = std::numeric_limits<double>::max();
 
-
-        for (const auto& spawn : map.spawns) {
-          double distance_to_spawn = (cand - spawn).length();
-          if (distance_to_spawn < min_distance_to_spawn) {
-            min_distance_to_spawn = distance_to_spawn;
-          }
+      for (const auto& spawn : map.spawns) {
+        double distance_to_spawn = (cand - spawn).length();
+        if (distance_to_spawn < min_distance_to_spawn) {
+          min_distance_to_spawn = distance_to_spawn;
         }
-
+      }
 
       for (const auto enemy : map.enemy_buildings) {
         double distance_to_enemy = (cand - map.buildings.at(enemy).position).length();
@@ -114,7 +112,7 @@ struct State {
         score += 0.2 * min_distance_to_spawn;
         score += 0.2 * min_distance_to_enemy;
       } else {
-//        min_distance_to_spawn = 0;
+        //        min_distance_to_spawn = 0;
         score -= 0.2 * min_distance_to_enemy;
       }
 
@@ -131,9 +129,11 @@ struct State {
     for (const auto& candidate : candidate_scores) {
       if (candidate.position.x % 5 == shift_pattern[candidate.position.y % shift_pattern.size()] &&
           turn > 140) {
-        continue;
+        if ((map.buildings[map.my_base].position - candidate.position).sq_length() > 4) {
+          continue;
+        }
       }
-//      if ((me.gold > 0 && (turn > 300 || turn < 50)) || me.gold > turn) {
+      //      if ((me.gold > 0 && (turn > 300 || turn < 50)) || me.gold > turn) {
       if (me.gold > 0) {
         build_command.push_back(candidate.position);
         me.gold--;
@@ -174,29 +174,28 @@ struct State {
     }
 
     // Calculate the centroid of the main cluster
-    vec2d centroid{0.0, 0.0};
-    double all_health = 0.0;
-    size_t main_cluster_size = 0;
-
-    for (size_t i : map.my_active_buildings) {
-      if (map.clusters->find(i) == map.clusters->find(map.my_base)) {
-        centroid += to_vec2d(map.buildings[i].position) * map.buildings[i].health;
-        all_health += map.buildings[i].health;
-        main_cluster_size++;
-      }
-    }
-    if (main_cluster_size > 0) {
-//      centroid /= static_cast<double>(main_cluster_size);
-      centroid /= all_health;
-    }
+    //    vec2d centroid{0.0, 0.0};
+    //    double all_health = 0.0;
+    //    size_t main_cluster_size = 0;
+    //
+    //    for (size_t i : map.my_active_buildings) {
+    //      if (map.clusters->find(i) == map.clusters->find(map.my_base)) {
+    //        centroid += to_vec2d(map.buildings[i].position) * map.buildings[i].health;
+    //        all_health += map.buildings[i].health;
+    //        main_cluster_size++;
+    //      }
+    //    }
+    //    if (main_cluster_size > 0) {
+    ////      centroid /= static_cast<double>(main_cluster_size);
+    //      centroid /= all_health;
+    //    }
 
     vec2i new_pos = map.buildings.at(map.my_base).position;
     double best_score = std::numeric_limits<double>::max();
-    double distance_to_centroid = (to_vec2d(new_pos) - centroid).length();
 
     auto calculate_score = [&](const vec2i& pos) {
       double danger = map.at(pos).danger_score * map.at(pos).danger_multiplier;
-      double dist_to_centroid = (to_vec2d(pos) - centroid).length();
+      //      double dist_to_centroid = (to_vec2d(pos) - centroid).length();
 
       // Calculate penalty for being close to spawns
       double min_distance_to_spawn = 1000.0;
@@ -207,7 +206,29 @@ struct State {
         }
       }
 
-      return 10.0*danger + dist_to_centroid - std::sqrt(min_distance_to_spawn);
+      double neighbours_score = 0.0;
+      const auto& dirs = map.get_attack_dirs(map.buildings[map.my_base].range);
+      for (auto dir : dirs) {
+        if (dir.x != 0 && dir.y != 0) {
+          dir.add(pos);
+          if (map.on_map(dir)) {
+            auto& cell = map.at(dir);
+            if (cell.building >= 0 && map.my_active_buildings.contains(cell.building)) {
+              neighbours_score += map.buildings[cell.building].health;
+            }
+            if (cell.type == Cell::Type::wall) {
+              neighbours_score += 100;
+            } else if (cell.type == Cell::Type::spawn) {
+              neighbours_score -= 200;
+            }
+          } else {
+            neighbours_score += 150;
+          }
+        }
+      }
+
+      //      return 10.0 * danger + dist_to_centroid - std::sqrt(min_distance_to_spawn);
+      return 100.0 * danger - neighbours_score;
     };
 
     for (size_t i : map.my_active_buildings) {
@@ -219,13 +240,13 @@ struct State {
       }
     }
 
-//    for (const auto& p : build_command) {
-//      double score = calculate_score(p);
-//      if (score < best_score) {
-//        best_score = score;
-//        new_pos = p;
-//      }
-//    }
+    //    for (const auto& p : build_command) {
+    //      double score = calculate_score(p);
+    //      if (score < best_score) {
+    //        best_score = score;
+    //        new_pos = p;
+    //      }
+    //    }
 
     if (new_pos == map.buildings.at(map.my_base).position) {
       move_base_command.reset();
@@ -307,7 +328,7 @@ struct State {
     std::vector<uint32_t> field_colors;
     vec2i pos{0, 0};
     uint32_t alpha = 100;
-    alpha <<=24;
+    alpha <<= 24;
     while (pos.y < map.size.y) {
       pos.x = 0;
       while (pos.x < map.size.x) {
