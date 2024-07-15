@@ -214,7 +214,7 @@ struct State {
           if (map.on_map(dir)) {
             auto& cell = map.at(dir);
             if (cell.building >= 0 && map.my_active_buildings.contains(cell.building)) {
-              neighbours_score += map.buildings[cell.building].health;
+              neighbours_score += std::min(100, map.buildings[cell.building].health);
             }
             if (cell.type == Cell::Type::wall) {
               neighbours_score += 120;
