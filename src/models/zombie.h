@@ -85,11 +85,11 @@ struct Zombie {
         0,
         static_cast<double>(attack),
     };
-    int temp_w = wait_turns;
+//    int temp_w = wait_turns;
     for (size_t i = 0; i < turns; i++) {
       state.step = i;
-      if (--temp_w <= 0) {
-        temp_w = wait;
+//      if (--temp_w <= 0) {
+//        temp_w = wait;
         if (type == Type::chaos_knight) {
           for (int step = 0; step < 2; step++) {
             state.pos.add(state.dir);
@@ -110,7 +110,7 @@ struct Zombie {
             result.emplace_back(state);
           }
         }
-      }
+//      }
       state.damage *= time_factor;
     }
     return result;
