@@ -307,58 +307,58 @@ class Map {
 
       for (size_t fp = 0; fp < future_positions.size(); fp++) {
         const auto& future_pos = future_positions[fp];
-        if (on_map(future_pos.pos)) {
-          auto& cell = at(future_pos.pos);
-          if (cell.type != Cell::Type::normal) {
-            break;
+        if (!on_map(future_pos.pos)) {
+          break;
+        }
+        auto& cell = at(future_pos.pos);
+        if (cell.type != Cell::Type::normal) {
+          // TODO: handle knight
+          break;
+        }
+        if (cell.building >= 0) {
+          cell.zombie_danger += future_pos.damage;
+          //            if (!buildings[cell.building].is_enemy) {
+          if (my_active_buildings.contains(cell.building)) {
+            zombie.danger += future_pos.damage;
           }
-          if (cell.building >= 0) {
-            cell.zombie_danger += future_pos.damage;
-            //            if (!buildings[cell.building].is_enemy) {
-            if (my_active_buildings.contains(cell.building)) {
-              zombie.danger += future_pos.damage;
-            }
 
-            if (zombie.type == Zombie::Type::bomber) {
-              for (const auto& shift : all_directions_) {
-                temp_pos.set(future_pos.pos).add(shift);
-                if (on_map(temp_pos)) {
-                  auto& cell_2 = at(temp_pos);
-                  cell_2.zombie_danger += future_pos.damage;
-
-                  if (cell_2.building >= 0 && !buildings[cell.building].is_enemy) {
-                    zombie.danger += future_pos.damage;
-                  }
-                }
-              }
-            } else if (zombie.type == Zombie::Type::liner) {
-              temp_pos.set(future_pos.pos).add(future_pos.dir);
-              while (on_map(temp_pos)) {
+          if (zombie.type == Zombie::Type::bomber) {
+            for (const auto& shift : all_directions_) {
+              temp_pos.set(future_pos.pos).add(shift);
+              if (on_map(temp_pos)) {
                 auto& cell_2 = at(temp_pos);
-                if (cell_2.building < 0) {
-                  break;
-                }
+                cell_2.zombie_danger += future_pos.damage;
 
-                cell_2.zombie_danger += t * zombie.attack;
-                if (cell_2.building >= 0 && !buildings[cell_2.building].is_enemy) {
+                if (cell_2.building >= 0 && !buildings[cell.building].is_enemy) {
                   zombie.danger += future_pos.damage;
                 }
-                temp_pos.add(future_pos.dir);
               }
             }
+          } else if (zombie.type == Zombie::Type::liner) {
+            temp_pos.set(future_pos.pos).add(future_pos.dir);
+            while (on_map(temp_pos)) {
+              auto& cell_2 = at(temp_pos);
+              if (cell_2.building < 0) {
+                break;
+              }
 
-            if (zombie.type != Zombie::Type::juggernaut &&
-                zombie.type != Zombie::Type::chaos_knight &&
-                (fp + 1 >= future_positions.size() ||
-                 future_positions[fp + 1].step != future_pos.step)) {
-              break;
+              cell_2.zombie_danger += t * zombie.attack;
+              if (cell_2.building >= 0 && !buildings[cell_2.building].is_enemy) {
+                zombie.danger += future_pos.damage;
+              }
+              temp_pos.add(future_pos.dir);
             }
-          } else {
-            // TODO:??
-            cell.zombie_danger += future_pos.damage;
+          }
+
+          if (zombie.type != Zombie::Type::juggernaut &&
+              zombie.type != Zombie::Type::chaos_knight &&
+              (fp + 1 >= future_positions.size() ||
+               future_positions[fp + 1].step != future_pos.step)) {
+            break;
           }
         } else {
-          break;
+          // TODO:??
+          cell.zombie_danger += future_pos.damage;
         }
       }
     }
