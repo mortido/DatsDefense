@@ -1,8 +1,8 @@
 #pragma once
 #include <rapidjson/document.h>
 
-#include <string>
 #include <random>
+#include <string>
 #include <unordered_map>
 
 #include "models/vec2i.h"
@@ -33,7 +33,6 @@ struct Zombie {
   };
   int attack;
   int health;
-  int damage_taken = 0;
   int wait_turns;
 
   std::string id;
@@ -51,7 +50,6 @@ struct Zombie {
         {"juggernaut", Type::juggernaut}, {"chaos_knight", Type::chaos_knight},
     };
 
-    damage_taken = 0;
     attack = value["attack"].GetInt();
     health = value["health"].GetInt();
     wait_turns = value["waitTurns"].GetInt();
@@ -75,9 +73,15 @@ struct Zombie {
   }
 
   std::vector<FuturePosition> get_future_positions(size_t turns, double time_factor, int wait) {
-    static std::mt19937 rng(std::random_device{}());
-    static std::uniform_int_distribution<int> dist(0, 1);
+    if (type == Type::chaos_knight) {
+      return get_future_positions_knight(turns, time_factor, wait);
+    } else {
+      return get_future_positions_others(turns, time_factor, wait);
+    }
+  }
 
+  std::vector<FuturePosition> get_future_positions_others(size_t turns, double time_factor,
+                                                          int wait) {
     std::vector<FuturePosition> result;
     FuturePosition state{
         position,
@@ -85,33 +89,55 @@ struct Zombie {
         0,
         static_cast<double>(attack),
     };
-//    int temp_w = wait_turns;
-    for (size_t i = 0; i < turns; i++) {
-      state.step = i;
-//      if (--temp_w <= 0) {
-//        temp_w = wait;
-        if (type == Type::chaos_knight) {
-          for (int step = 0; step < 2; step++) {
-            state.pos.add(state.dir);
-          }
-
-          //todo: probability
-          if (dist(rng) == 0) {
-            state.dir.rotate90ccw();
-          } else {
-            state.dir.rotate90cw();
-          }
-          state.pos.add(state.dir);
-          result.emplace_back(state);
-        } else {
-          // Normal movement for other types
-          for (int step = 0; step < speed; step++) {
-            state.pos.add(state.dir);
-            result.emplace_back(state);
-          }
-        }
-//      }
+    int temp_w = wait_turns;
+    for (size_t i = temp_w; i < turns; i += temp_w) {
+      double t = std::pow(time_factor, temp_w + 1.0);
+      temp_w = wait;
       state.damage *= time_factor;
+      state.step = i;
+      for (int step = 0; step < speed; step++) {
+        state.pos.add(state.dir);
+        result.emplace_back(state);
+      }
+    }
+    return result;
+  }
+
+  std::vector<FuturePosition> get_future_positions_knight(size_t turns, double time_factor,
+                                                          int wait) {
+    std::vector<FuturePosition> result;
+    std::queue<FuturePosition> queue;
+    std::queue<FuturePosition> next_queue;
+    queue.push(FuturePosition{
+        position,
+        direction,
+        wait_turns,
+        static_cast<double>(attack),
+    });
+    int temp_w = wait_turns;
+    for (size_t i = temp_w; i < turns; i += temp_w) {
+      while (!queue.empty()) {
+        double t = std::pow(time_factor, temp_w + 1.0);
+        temp_w = wait;
+        auto cur_state = queue.front();
+        queue.pop();
+        cur_state.damage *= t;  // * 0.5;
+        cur_state.step = i;
+
+        cur_state.pos.add(cur_state.dir);
+        cur_state.pos.add(cur_state.dir);
+        cur_state.dir.rotate90ccw();
+        cur_state.pos.add(cur_state.dir);
+        result.emplace_back(cur_state);
+        next_queue.emplace(cur_state);
+
+        cur_state.dir.mul(-1);
+        cur_state.pos.add(cur_state.dir);
+        cur_state.pos.add(cur_state.dir);
+        result.emplace_back(cur_state);
+        next_queue.emplace(cur_state);
+      }
+      std::swap(queue, next_queue);
     }
     return result;
   }

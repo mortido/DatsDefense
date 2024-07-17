@@ -19,7 +19,6 @@ namespace mortido::models {
 struct Building {
   int attack=0;
   int health=0;
-  int damage_taken = 0.0;
   bool is_head=false;
   bool is_enemy=false;
   int range=0;

@@ -12,7 +12,7 @@
 
 namespace mortido::models {
 
-constexpr static size_t kLookAhead = 20;
+constexpr static size_t kLookAhead = 15;
 constexpr static double kTimeFactor = 0.9;
 
 struct Cell {
@@ -22,11 +22,30 @@ struct Cell {
     spawn,
   };
 
-  double danger_score = 0.0;
+  //  double danger_score = 0.0;
+  int damage_taken = 0;
+  double zombie_danger = 0.0;
+  double spawn_danger = 0.0;
+  double enemy_danger = 0.0;
   double danger_multiplier = 1.0;
   Type type = Type::normal;
   std::vector<size_t> zombies;
   int building = -1;
+
+  void inline reset() {
+    zombies.clear();
+    building = -1;
+    //    danger_score = 0.0;
+    zombie_danger = 0.0;
+    spawn_danger = 0.0;
+    enemy_danger = 0.0;
+    danger_multiplier = 1.0;
+    damage_taken = 0;
+  }
+
+  double get_danger_score() {
+    return (zombie_danger + spawn_danger + enemy_danger) * danger_multiplier;
+  }
 };
 
 class UnionFind {
@@ -98,8 +117,6 @@ class Map {
   std::vector<size_t> enemy_buildings;
   std::vector<vec2i> walls;
   std::vector<vec2i> spawns;
-  double min_danger= std::numeric_limits<double>::infinity();
-  double max_danger = -std::numeric_limits<double>::infinity();
 
   Map()
       : const_time_factor(0.0)
@@ -185,10 +202,7 @@ class Map {
   void clear() {
     for (auto& row : data_) {
       for (auto& cell : row) {
-        cell.zombies.clear();
-        cell.building = -1;
-        cell.danger_score = 0.0;
-        cell.danger_multiplier = 1.0;
+        cell.reset();
       }
     }
     my_buildings.clear();
@@ -299,9 +313,7 @@ class Map {
             break;
           }
           if (cell.building >= 0) {
-            cell.danger_score += future_pos.damage;
-            max_danger = std::max(max_danger, cell.danger_score);
-            min_danger = std::min(min_danger, cell.danger_score);
+            cell.zombie_danger += future_pos.damage;
             //            if (!buildings[cell.building].is_enemy) {
             if (my_active_buildings.contains(cell.building)) {
               zombie.danger += future_pos.damage;
@@ -312,9 +324,7 @@ class Map {
                 temp_pos.set(future_pos.pos).add(shift);
                 if (on_map(temp_pos)) {
                   auto& cell_2 = at(temp_pos);
-                  cell_2.danger_score += future_pos.damage;
-                  max_danger = std::max(max_danger, cell_2.danger_score);
-                  min_danger = std::min(min_danger, cell_2.danger_score);
+                  cell_2.zombie_danger += future_pos.damage;
 
                   if (cell_2.building >= 0 && !buildings[cell.building].is_enemy) {
                     zombie.danger += future_pos.damage;
@@ -329,9 +339,7 @@ class Map {
                   break;
                 }
 
-                cell_2.danger_score += t * zombie.attack;
-                max_danger = std::max(max_danger, cell_2.danger_score);
-                min_danger = std::min(min_danger, cell_2.danger_score);
+                cell_2.zombie_danger += t * zombie.attack;
                 if (cell_2.building >= 0 && !buildings[cell_2.building].is_enemy) {
                   zombie.danger += future_pos.damage;
                 }
@@ -347,9 +355,7 @@ class Map {
             }
           } else {
             // TODO:??
-            cell.danger_score += future_pos.damage;
-            max_danger = std::max(max_danger, cell.danger_score);
-            min_danger = std::min(min_danger, cell.danger_score);
+            cell.zombie_danger += future_pos.damage;
           }
         } else {
           break;
@@ -367,10 +373,8 @@ class Map {
         temp_pos.set(building.position).add(tile);
         if (on_map(temp_pos)) {
           auto& cell = at(temp_pos);
-          cell.danger_score += const_time_factor * building.attack;
-//          cell.danger_score += building.attack;
-          max_danger = std::max(max_danger, cell.danger_score);
-          min_danger = std::min(min_danger, cell.danger_score);
+          cell.enemy_danger += const_time_factor * building.attack;
+          //          cell.danger_score += building.attack;
 
           if (cell.building >= 0 && !buildings.at(cell.building).is_enemy) {
             const auto& my_building = buildings.at(i);
@@ -423,14 +427,15 @@ class Map {
         continue;
       }
 
-      cell.danger_score += current->damage;
-      max_danger = std::max(max_danger, cell.danger_score);
-      min_danger = std::min(min_danger, cell.danger_score);
+      cell.spawn_danger += current->damage;
       if (current->step < static_cast<int>(kLookAhead)) {
-        current->damage *= kTimeFactor;
-        if (cell.building){
-          current->damage *= 0.5;
+        if (cell.building) {
+          current->damage *=
+              std::pow(kTimeFactor, 1.0 + std::ceil(buildings[cell.building].health / mean_dmg));
+        } else {
+          current->damage *= kTimeFactor;
         }
+
         current->step++;
         current->pos.add(current->dir);
         queue.emplace(std::move(current));
@@ -489,18 +494,13 @@ class Map {
   int attack(const vec2i& pos, int power) {
     int gold = 0;
     auto& cell = at(pos);
-    if (cell.building >= 0 && buildings.at(cell.building).is_enemy) {
-      buildings.at(cell.building).damage_taken += power;
-    }
     for (size_t z_i : cell.zombies) {
       auto& zombie = zombies.at(z_i);
-      if (zombie.health > zombie.damage_taken) {
-        zombie.damage_taken += power;
-        if (zombie.health <= zombie.damage_taken) {
-          gold++;
-        }
+      if (zombie.health > cell.damage_taken && zombie.health <= cell.damage_taken + power) {
+        gold++;
       }
     }
+    cell.damage_taken += power;
     return gold;
   }
 
@@ -509,7 +509,7 @@ class Map {
     double score = 0.0;
     if (cell.building >= 0 && buildings.at(cell.building).is_enemy) {
       const auto& building = buildings.at(cell.building);
-      if (building.health > building.damage_taken) {
+      if (building.health > cell.damage_taken) {
         int strikes = (building.health + power - 1) / power;
         if (building.is_head) {
           score += static_cast<double>(strikes) * building.danger * 100.0;
@@ -520,7 +520,7 @@ class Map {
     }
     for (size_t z_i : cell.zombies) {
       const auto& zombie = zombies.at(z_i);
-      if (zombie.health > zombie.damage_taken) {
+      if (zombie.health > cell.damage_taken) {
         int strikes = (zombie.health + power - 1) / power;
         score += static_cast<double>(strikes) * zombie.danger;
       }

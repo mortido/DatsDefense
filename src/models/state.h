@@ -83,7 +83,8 @@ struct State {
 
     std::vector<CandidateScore> candidate_scores;
     for (const auto& cand : map.build_candidates) {
-      double danger_score = map.at(cand).danger_score * map.at(cand).danger_multiplier;
+      auto& cell = map.at(cand);
+      double danger_score = (cell.enemy_danger + cell.zombie_danger) * cell.danger_multiplier;
       size_t nearest_cluster_size = map.get_nearest_cluster_size(cand);
       //      double distance_to_centroid = (to_vec2d(cand) - centroid).sq_length();
       double distance_to_centroid = (cand - base_pos).length();
@@ -117,7 +118,7 @@ struct State {
       }
 
       if (nearest_cluster_size > 0) {
-        score *= 1.0 / (1.0+static_cast<double>(nearest_cluster_size));
+        score *= 1.0 / (1.0 + static_cast<double>(nearest_cluster_size));
       }
       candidate_scores.push_back(CandidateScore{cand, score});
     }
@@ -173,7 +174,7 @@ struct State {
       return move_base_command;
     }
 
-    // Calculate the centroid of the main cluster
+    //    //     Calculate the centroid of the main cluster
     //    vec2d centroid{0.0, 0.0};
     //    double all_health = 0.0;
     //    size_t main_cluster_size = 0;
@@ -186,50 +187,49 @@ struct State {
     //      }
     //    }
     //    if (main_cluster_size > 0) {
-    ////      centroid /= static_cast<double>(main_cluster_size);
+    //      //      centroid /= static_cast<double>(main_cluster_size);
     //      centroid /= all_health;
     //    }
+
+    vec2i prev_pos = map.buildings.at(map.my_base).position;
 
     vec2i new_pos = map.buildings.at(map.my_base).position;
     double best_score = std::numeric_limits<double>::max();
 
     auto calculate_score = [&](const vec2i& pos) {
-      double danger = map.at(pos).danger_score * map.at(pos).danger_multiplier;
+      double danger = map.at(pos).get_danger_score();
       //      double dist_to_centroid = (to_vec2d(pos) - centroid).length();
 
-      // Calculate penalty for being close to spawns
-      double min_distance_to_spawn = 1000.0;
-      for (const auto& spawn : map.spawns) {
-        double distance_to_spawn = (pos - spawn).sq_length();
-        if (distance_to_spawn < min_distance_to_spawn) {
-          min_distance_to_spawn = distance_to_spawn;
+      //      // Calculate penalty for being close to spawns
+      //      double min_distance_to_spawn = 1000.0;
+      //      for (const auto& spawn : map.spawns) {
+      //        double distance_to_spawn = (pos - spawn).sq_length();
+      //        if (distance_to_spawn < min_distance_to_spawn) {
+      //          min_distance_to_spawn = distance_to_spawn;
+      //        }
+      //      }
+
+      double attack_score = 0.0;
+      const auto& dirs = map.get_attack_dirs(map.buildings[map.my_base].range);
+      for (auto dir : dirs) {
+        if (dir.x != 0 && dir.y != 0) {
+          dir.add(pos);
+          if (map.on_map(dir)) {
+            auto& cell = map.at(dir);
+            if (cell.building >= 0 && map.buildings[cell.building].is_enemy) {
+              const auto& building = map.buildings[cell.building];
+              if ((dir - pos).sq_length() > building.range * building.range) {
+                attack_score += 100.0 / static_cast<double>(building.health);
+              }
+            }
+          }
         }
       }
 
-//      double neighbours_score = 0.0;
-//      const auto& dirs = map.get_attack_dirs(map.buildings[map.my_base].range);
-//      for (auto dir : dirs) {
-//        if (dir.x != 0 && dir.y != 0) {
-//          dir.add(pos);
-//          if (map.on_map(dir)) {
-//            auto& cell = map.at(dir);
-//            if (cell.building >= 0 && map.my_active_buildings.contains(cell.building)) {
-//              neighbours_score += std::min(100, map.buildings[cell.building].health);
-//            }
-//            if (cell.type == Cell::Type::wall) {
-//              neighbours_score += 120;
-//            } else if (cell.type == Cell::Type::spawn) {
-//              neighbours_score -= 200;
-//            }
-//          } else {
-//            neighbours_score += 150;
-//          }
-//        }
-//      }
-
       //      return 10.0 * danger + dist_to_centroid - std::sqrt(min_distance_to_spawn);
-//      return 100.0 * danger - neighbours_score;
-      return danger;
+      //      return 100.0 * danger - neighbours_score;
+      //      return 100.0 * danger + dist_to_centroid;
+      return 100.0 * danger + (pos - prev_pos).length() + attack_score * 0.0001;
     };
 
     for (size_t i : map.my_active_buildings) {
@@ -330,13 +330,32 @@ struct State {
     vec2i pos{0, 0};
     uint32_t alpha = 100;
     alpha <<= 24;
+    double min_danger = std::numeric_limits<double>::infinity();
+    double max_danger = -std::numeric_limits<double>::infinity();
+
+    while (pos.y < map.size.y) {
+      pos.x = 0;
+      while (pos.x < map.size.x) {
+        double danger = map.at(pos).get_danger_score();
+        if (danger > 0.0000001) {
+          max_danger = std::max(max_danger, danger);
+          min_danger = std::min(min_danger, danger);
+        }
+        pos.x++;
+      }
+      pos.y++;
+    }
+
+    pos.y = 0;
     while (pos.y < map.size.y) {
       pos.x = 0;
       while (pos.x < map.size.x) {
         uint32_t color = 0;
-        double danger = map.at(pos).danger_score;
+        double danger = map.at(pos).get_danger_score();
         if (danger > 0.0000001) {
-          color = heat_color(danger, map.min_danger, map.max_danger) | alpha;
+          color =
+              heat_color(std::log(danger - min_danger), 0.0, std::log(max_danger - min_danger)) |
+              alpha;
         }
         field_colors.push_back(color);
         pos.x++;
