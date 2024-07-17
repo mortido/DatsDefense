@@ -28,6 +28,8 @@ struct State {
   Player me;
   Map map;
   std::chrono::steady_clock::time_point turn_end_time;
+  std::optional<std::string> game_ended_at;
+  std::string end_status;
 
   std::vector<vec2i> build_command;
   std::optional<vec2i> move_base_command;
@@ -197,7 +199,8 @@ struct State {
     double best_score = std::numeric_limits<double>::max();
 
     auto calculate_score = [&](const vec2i& pos) {
-      double danger = map.at(pos).get_danger_score();
+      const auto &cell_0 =  map.at(pos);
+      double danger = cell_0.get_danger_score();
       //      double dist_to_centroid = (to_vec2d(pos) - centroid).length();
 
       //      // Calculate penalty for being close to spawns
@@ -215,7 +218,7 @@ struct State {
         if (dir.x != 0 && dir.y != 0) {
           dir.add(pos);
           if (map.on_map(dir)) {
-            auto& cell = map.at(dir);
+            const auto& cell = map.at(dir);
             if (cell.building >= 0 && map.buildings[cell.building].is_enemy) {
               const auto& building = map.buildings[cell.building];
               if ((dir - pos).sq_length() > building.range * building.range) {
@@ -229,7 +232,7 @@ struct State {
       //      return 10.0 * danger + dist_to_centroid - std::sqrt(min_distance_to_spawn);
       //      return 100.0 * danger - neighbours_score;
       //      return 100.0 * danger + dist_to_centroid;
-      return 100.0 * danger + (pos - prev_pos).length() + attack_score * 0.0001;
+      return 10000 *cell_0.next_move_danger + 100.0 * danger + (pos - prev_pos).length() + attack_score * 0.0001;
     };
 
     for (size_t i : map.my_active_buildings) {

@@ -121,7 +121,7 @@ struct Zombie {
         temp_w = wait;
         auto cur_state = queue.front();
         queue.pop();
-        cur_state.damage *= t;  // * 0.5;
+        cur_state.damage *= t;// * 0.5;
         cur_state.step = i;
 
         cur_state.pos.add(cur_state.dir);

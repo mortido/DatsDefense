@@ -24,6 +24,7 @@ struct Cell {
 
   //  double danger_score = 0.0;
   int damage_taken = 0;
+  int next_move_danger = 0;
   double zombie_danger = 0.0;
   double spawn_danger = 0.0;
   double enemy_danger = 0.0;
@@ -41,9 +42,10 @@ struct Cell {
     enemy_danger = 0.0;
     danger_multiplier = 1.0;
     damage_taken = 0;
+    next_move_danger = 0;
   }
 
-  double get_danger_score() {
+  double get_danger_score() const {
     return (zombie_danger + spawn_danger + enemy_danger) * danger_multiplier;
   }
 };
@@ -317,6 +319,9 @@ class Map {
         }
         if (cell.building >= 0) {
           cell.zombie_danger += future_pos.damage;
+          if (future_pos.step==0){
+            cell.next_move_danger+=zombie.attack;
+          }
           //            if (!buildings[cell.building].is_enemy) {
           if (my_active_buildings.contains(cell.building)) {
             zombie.danger += future_pos.damage;
@@ -328,7 +333,9 @@ class Map {
               if (on_map(temp_pos)) {
                 auto& cell_2 = at(temp_pos);
                 cell_2.zombie_danger += future_pos.damage;
-
+                if (future_pos.step==0){
+                  cell_2.next_move_danger+=zombie.attack;
+                }
                 if (cell_2.building >= 0 && !buildings[cell.building].is_enemy) {
                   zombie.danger += future_pos.damage;
                 }
@@ -343,6 +350,9 @@ class Map {
               }
 
               cell_2.zombie_danger += t * zombie.attack;
+              if (future_pos.step==0){
+                cell_2.next_move_danger+=zombie.attack;
+              }
               if (cell_2.building >= 0 && !buildings[cell_2.building].is_enemy) {
                 zombie.danger += future_pos.damage;
               }
@@ -359,6 +369,9 @@ class Map {
         } else {
           // TODO:??
           cell.zombie_danger += future_pos.damage;
+          if (future_pos.step==0){
+            cell.next_move_danger+=zombie.attack;
+          }
         }
       }
     }
@@ -374,6 +387,7 @@ class Map {
         if (on_map(temp_pos)) {
           auto& cell = at(temp_pos);
           cell.enemy_danger += const_time_factor * building.attack;
+          cell.next_move_danger += building.attack;
           //          cell.danger_score += building.attack;
 
           if (cell.building >= 0 && !buildings.at(cell.building).is_enemy) {

@@ -14,7 +14,7 @@ struct Player {
   int enemy_block_kills;
   int points;
   int zombie_kills;
-  std::optional<std::string> game_ended_at;
+
 
   void update_from_json(const rapidjson::Value& value) {
     name = value["name"].GetString();
@@ -22,11 +22,6 @@ struct Player {
     enemy_block_kills = value["enemyBlockKills"].GetInt();
     points = value["points"].GetInt();
     zombie_kills = value["zombieKills"].GetInt();
-    if (value.HasMember("gameEndedAt") && !value["gameEndedAt"].IsNull()) {
-      game_ended_at = value["gameEndedAt"].GetString();
-    } else {
-      game_ended_at.reset();
-    }
   }
 
 };

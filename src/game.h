@@ -1,5 +1,7 @@
 #pragma once
 
+#include <rapidjson/writer.h>
+
 #include <filesystem>
 #include <fstream>
 #include <string>
@@ -16,16 +18,21 @@ namespace mortido::game {
 
 class Game {
  public:
-  explicit Game(std::string game_id, api::Api& api)
-      : id_{std::move(game_id)}
-      , api_(api)
-      , log_file_{"data/game_" + id_ + ".log"}
-      , dump_file_{"data/game_" + id_ + ".dump", std::ios::app} {
+  explicit Game(std::string game_id, api::Api& api, bool write_dump = false)
+      : id_{std::move(game_id)}, api_(api), log_file_{"data/game_" + id_ + ".log"} {
     loguru::add_file(log_file_.c_str(), loguru::Append, loguru::Verbosity_MAX);
+    if (write_dump) {
+      dump_file_.open("data/game_" + id_ + ".dump", std::ios::app);
+      if (!dump_file_.is_open()) {
+        throw std::runtime_error("Could not open dump file");
+      }
+    }
   }
 
   ~Game() {
-    dump_file_.close();
+    if (dump_file_.is_open()) {
+      dump_file_.close();
+    }
     loguru::remove_callback(log_file_.c_str());
     loguru::flush();
   }
@@ -44,15 +51,15 @@ class Game {
       std::this_thread::sleep_for(std::chrono::seconds(participate_result.starts_in_sec) + 250ms);
     }
 
-    try {
+//    try {
       game_loop();
-    } catch (const api::ApiError& e) {
-      LOG_FATAL("API Exception occurred in game loop: %s", e.what());
-      throw e;
-    } catch (const std::exception& e) {
-      LOG_FATAL("Exception occurred in game loop: %s", e.what());
-      return false;
-    }
+//    } catch (const api::ApiError& e) {
+//      LOG_FATAL("API Exception occurred in game loop: %s", e.what());
+//      throw e;
+//    } catch (const std::exception& e) {
+//      LOG_FATAL("Exception occurred in game loop: %s", e.what());
+//      return false;
+//    }
     return true;
   }
 
@@ -65,8 +72,20 @@ class Game {
   std::string team_name_;
   models::State state_;
 
-  void load();
+  bool load_world();
+  bool load_units();
   void game_loop();
+
+  void dump_json(const std::string& type, const rapidjson::Document& doc) {
+    if (dump_file_.is_open()) {
+      rapidjson::StringBuffer buffer;
+      rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+      doc.Accept(writer);
+      std::string json_str = buffer.GetString();
+      dump_file_ << type << ": " << json_str << std::endl;
+      dump_file_.flush();
+    }
+  }
 };
 
 }  // namespace mortido::game

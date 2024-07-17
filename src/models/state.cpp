@@ -3,14 +3,26 @@
 namespace mortido::models {
 
 bool State::update_from_json(const rapidjson::Document& doc) {
-  if (turn == doc["turn"].GetInt()) {
+  int next_turn = doc["turn"].GetInt();
+  if (turn == next_turn) {
     return false;
+  }
+
+  if(next_turn - turn > 1) {
+    LOG_ERROR("TURN SKIPPED %d -> %d", turn, next_turn);
   }
 
   int turn_ends_in_ms = doc["turnEndsInMs"].GetInt();
   turn_end_time = std::chrono::steady_clock::now() + std::chrono::milliseconds(turn_ends_in_ms);
-  turn = doc["turn"].GetInt();
-  me.update_from_json(doc["player"]);
+  turn = next_turn;
+  const auto& player_json = doc["player"];
+  me.update_from_json(player_json);
+  if (player_json.HasMember("gameEndedAt") && !player_json["gameEndedAt"].IsNull()) {
+    game_ended_at = player_json["gameEndedAt"].GetString();
+    end_status = "GAME OVER";
+  } else {
+    game_ended_at.reset();
+  }
 
   map.clear();
   if (doc.HasMember("base") && doc["base"].IsArray()) {

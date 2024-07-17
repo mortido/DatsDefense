@@ -5,6 +5,7 @@
 
 
 #include "api/http.h"
+#include "api/dump.h"
 #include "game.h"
 #include "logger.h"
 
@@ -15,6 +16,9 @@ constexpr const size_t kMaxRPS = 3;
 constexpr const char *kTokenFile = "data/token.txt";
 constexpr const char *kServerURL = "https://games-test.datsteam.dev";
 //constexpr const char *kServerURL = "https://games.datsteam.dev";
+constexpr const char *kReplayFile = "data/game_test-map1-30.dump";
+constexpr const bool kWriteDump = true;
+//constexpr const bool kWriteDump = false;
 
 std::string read_token() {
   std::string token;
@@ -45,9 +49,8 @@ std::string format_time_point_as_local_time(const std::chrono::system_clock::tim
 int main(int argc, char *argv[]) {
   loguru::init(argc, argv);
   loguru::g_flush_interval_ms = 0;  // unbuffered
-//  mortido::net::Api api(kServerURL, read_token());
-
   mortido::api::HttpApi api(kServerURL, read_token(), kMaxRPS, 30);
+//  mortido::api::DumpApi api(kReplayFile);
   std::string prev_round_name;
 
   while (true) {
@@ -87,7 +90,7 @@ int main(int argc, char *argv[]) {
 //      }
       LOG_INFO("Game %s has started.", round.name.c_str());
     }
-    mortido::game::Game game(round.name, api);
+    mortido::game::Game game(round.name, api, kWriteDump);
     while (!game.run()) {
       LOG_ERROR("GAME %s FINISHED WITH NEGATIVE RESULT, RELOADING...", round.name.c_str());
     }
