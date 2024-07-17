@@ -40,7 +40,7 @@ bool State::update_from_json(const rapidjson::Document& doc) {
     }
   }
 
-  map.update();
+  map.update(turn);
   return true;
 }
 

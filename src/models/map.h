@@ -98,7 +98,8 @@ class Map {
   std::vector<size_t> enemy_buildings;
   std::vector<vec2i> walls;
   std::vector<vec2i> spawns;
-  double max_danger;
+  double min_danger= std::numeric_limits<double>::infinity();
+  double max_danger = -std::numeric_limits<double>::infinity();
 
   Map()
       : const_time_factor(0.0)
@@ -299,6 +300,8 @@ class Map {
           }
           if (cell.building >= 0) {
             cell.danger_score += future_pos.damage;
+            max_danger = std::max(max_danger, cell.danger_score);
+            min_danger = std::min(min_danger, cell.danger_score);
             //            if (!buildings[cell.building].is_enemy) {
             if (my_active_buildings.contains(cell.building)) {
               zombie.danger += future_pos.damage;
@@ -310,6 +313,9 @@ class Map {
                 if (on_map(temp_pos)) {
                   auto& cell_2 = at(temp_pos);
                   cell_2.danger_score += future_pos.damage;
+                  max_danger = std::max(max_danger, cell_2.danger_score);
+                  min_danger = std::min(min_danger, cell_2.danger_score);
+
                   if (cell_2.building >= 0 && !buildings[cell.building].is_enemy) {
                     zombie.danger += future_pos.damage;
                   }
@@ -324,6 +330,8 @@ class Map {
                 }
 
                 cell_2.danger_score += t * zombie.attack;
+                max_danger = std::max(max_danger, cell_2.danger_score);
+                min_danger = std::min(min_danger, cell_2.danger_score);
                 if (cell_2.building >= 0 && !buildings[cell_2.building].is_enemy) {
                   zombie.danger += future_pos.damage;
                 }
@@ -340,6 +348,8 @@ class Map {
           } else {
             // TODO:??
             cell.danger_score += future_pos.damage;
+            max_danger = std::max(max_danger, cell.danger_score);
+            min_danger = std::min(min_danger, cell.danger_score);
           }
         } else {
           break;
@@ -358,7 +368,9 @@ class Map {
         if (on_map(temp_pos)) {
           auto& cell = at(temp_pos);
           cell.danger_score += const_time_factor * building.attack;
+//          cell.danger_score += building.attack;
           max_danger = std::max(max_danger, cell.danger_score);
+          min_danger = std::min(min_danger, cell.danger_score);
 
           if (cell.building >= 0 && !buildings.at(cell.building).is_enemy) {
             const auto& my_building = buildings.at(i);
@@ -375,13 +387,55 @@ class Map {
     }
   }
 
-  void update() {
+  void update(int turn) {
     view_zone_updated = false;
     vec2i temp_pos;
 
     update_my_buildings();
     update_enemy_buildings();
     update_zombies();
+
+    double spawn_prob = static_cast<double>(std::min((turn + 5) / 6, 50)) * 0.01;
+    double mean_dmg = 0.0;
+    for (const auto& [_, zombie] : proto_zombie) {
+      mean_dmg += zombie.attack;
+    }
+    mean_dmg /= static_cast<double>(proto_zombie.size());
+    mean_dmg *= spawn_prob;
+    mean_dmg *= 0.1;
+
+    std::queue<std::shared_ptr<FuturePosition>> queue;
+    for (const auto& spawn : spawns) {
+      for (const auto& dir : straight_directions_) {
+        queue.emplace(std::make_shared<FuturePosition>(
+            FuturePosition{.pos = spawn + dir, .dir = dir, .step = 0, .damage = mean_dmg}));
+      }
+    }
+    while (!queue.empty()) {
+      auto current = std::move(queue.front());
+      queue.pop();
+
+      if (!on_map(current->pos)) {
+        continue;
+      }
+      auto& cell = at(current->pos);
+      if (cell.type != Cell::Type::normal) {
+        continue;
+      }
+
+      cell.danger_score += current->damage;
+      max_danger = std::max(max_danger, cell.danger_score);
+      min_danger = std::min(min_danger, cell.danger_score);
+      if (current->step < static_cast<int>(kLookAhead)) {
+        current->damage *= kTimeFactor;
+        if (cell.building){
+          current->damage *= 0.5;
+        }
+        current->step++;
+        current->pos.add(current->dir);
+        queue.emplace(std::move(current));
+      }
+    }
 
     if (my_base >= 0) {
       std::unordered_set<vec2i> visited;
