@@ -196,10 +196,9 @@ struct State {
     vec2i prev_pos = map.buildings.at(map.my_base).position;
 
     vec2i new_pos = map.buildings.at(map.my_base).position;
-    double best_score = std::numeric_limits<double>::max();
 
     auto calculate_score = [&](const vec2i& pos) {
-      const auto &cell_0 =  map.at(pos);
+      const auto& cell_0 = map.at(pos);
       double danger = cell_0.get_danger_score();
       //      double dist_to_centroid = (to_vec2d(pos) - centroid).length();
 
@@ -232,14 +231,18 @@ struct State {
       //      return 10.0 * danger + dist_to_centroid - std::sqrt(min_distance_to_spawn);
       //      return 100.0 * danger - neighbours_score;
       //      return 100.0 * danger + dist_to_centroid;
-      return 10000 *cell_0.next_move_danger + 100.0 * danger + (pos - prev_pos).length() + attack_score * 0.0001;
+      return 100.0 * danger + (pos - prev_pos).length() + attack_score * 0.0001;
     };
 
+    double best_score = std::numeric_limits<double>::max();
+    int next_dmg = std::numeric_limits<int>::max();
     for (size_t i : map.my_active_buildings) {
       const auto& p = map.buildings[i].position;
       double score = calculate_score(p);
-      if (score < best_score) {
+      int nd = map.at(p).next_move_danger;
+      if (nd < next_dmg || (nd == next_dmg && score < best_score)) {
         best_score = score;
+        next_dmg = nd;
         new_pos = p;
       }
     }
@@ -336,13 +339,22 @@ struct State {
     double min_danger = std::numeric_limits<double>::infinity();
     double max_danger = -std::numeric_limits<double>::infinity();
 
+    int min_nd = std::numeric_limits<int>::max();
+    int max_nd = std::numeric_limits<int>::min();
+
     while (pos.y < map.size.y) {
       pos.x = 0;
       while (pos.x < map.size.x) {
         double danger = map.at(pos).get_danger_score();
+        int nd = map.at(pos).next_move_danger;
         if (danger > 0.0000001) {
           max_danger = std::max(max_danger, danger);
           min_danger = std::min(min_danger, danger);
+        }
+
+        if (nd > 0) {
+          max_nd = std::max(max_nd, nd);
+          min_nd = std::min(min_nd, nd);
         }
         pos.x++;
       }
@@ -366,6 +378,25 @@ struct State {
       pos.y++;
     }
 
+    rc.tiles(vec2d(0.0, 0.0), vec2d(1.0, 1.0), map.size.x, &field_colors, false);
+
+    field_colors.clear();
+    pos.y = 0;
+    while (pos.y < map.size.y) {
+      pos.x = 0;
+      while (pos.x < map.size.x) {
+        uint32_t color = 0;
+        int nd = map.at(pos).next_move_danger;
+        if (nd > 0) {
+          color = heat_color(nd, min_nd, max_nd) | alpha;
+        }
+        field_colors.push_back(color);
+        pos.x++;
+      }
+      pos.y++;
+    }
+
+    rc.switch_to_layer(9);
     rc.tiles(vec2d(0.0, 0.0), vec2d(1.0, 1.0), map.size.x, &field_colors, false);
 
     rc.log_text("Turn %d", turn);

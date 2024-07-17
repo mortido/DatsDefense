@@ -319,7 +319,7 @@ class Map {
         }
         if (cell.building >= 0) {
           cell.zombie_danger += future_pos.damage;
-          if (future_pos.step==0){
+          if (future_pos.step<=1){
             cell.next_move_danger+=zombie.attack;
           }
           //            if (!buildings[cell.building].is_enemy) {
@@ -333,7 +333,7 @@ class Map {
               if (on_map(temp_pos)) {
                 auto& cell_2 = at(temp_pos);
                 cell_2.zombie_danger += future_pos.damage;
-                if (future_pos.step==0){
+                if (future_pos.step<=1){
                   cell_2.next_move_danger+=zombie.attack;
                 }
                 if (cell_2.building >= 0 && !buildings[cell.building].is_enemy) {
@@ -350,7 +350,7 @@ class Map {
               }
 
               cell_2.zombie_danger += t * zombie.attack;
-              if (future_pos.step==0){
+              if (future_pos.step<=1){
                 cell_2.next_move_danger+=zombie.attack;
               }
               if (cell_2.building >= 0 && !buildings[cell_2.building].is_enemy) {
@@ -369,7 +369,7 @@ class Map {
         } else {
           // TODO:??
           cell.zombie_danger += future_pos.damage;
-          if (future_pos.step==0){
+          if (future_pos.step<=1){
             cell.next_move_danger+=zombie.attack;
           }
         }
