@@ -23,12 +23,13 @@ class DumpApi : public Api {
   std::string name_;
 
  public:
-  explicit DumpApi(std::filesystem::path dump_file) : dump_file_(std::move(dump_file)), name_("dump_of_") {
+  explicit DumpApi(std::filesystem::path dump_file)
+      : dump_file_(std::move(dump_file)), name_("dump_of_") {
     file_stream_.open(dump_file_, std::ios::in);
     if (!file_stream_.is_open()) {
       throw std::runtime_error("Could not open dump file");
     }
-    name_+=dump_file_.filename().stem();
+    name_ += dump_file_.filename().stem();
   }
 
   ~DumpApi() {
@@ -37,18 +38,16 @@ class DumpApi : public Api {
     }
   }
 
-  bool active() override{
-    return !game_ended_ ;
-  }
+  bool active() override { return !game_ended_; }
 
-  Round get_current_round(const std::string &prev_round) override {
+  Round get_current_round(const std::string& prev_round) override {
     auto now = std::chrono::system_clock::now();
-//    auto now_time_t = std::chrono::system_clock::to_time_t(now);
-//
-//    std::ostringstream oss;
-//    oss << std::put_time(std::localtime(&now_time_t), "%Y-%m-%d_%H-%M-%S");
+    //    auto now_time_t = std::chrono::system_clock::to_time_t(now);
+    //
+    //    std::ostringstream oss;
+    //    oss << std::put_time(std::localtime(&now_time_t), "%Y-%m-%d_%H-%M-%S");
 
-    if (prev_round==name_){
+    if (prev_round == name_) {
       std::exit(EXIT_SUCCESS);
     }
 
@@ -71,7 +70,7 @@ class DumpApi : public Api {
     };
   }
 
-  CommandResponse send_command(const Command &command) override {
+  CommandResponse send_command(const Command& command) override {
     turn_++;
     return {};
   }
@@ -89,9 +88,9 @@ class DumpApi : public Api {
     units_doc.Parse(last_units_json_string_.c_str());
     if (!units_doc.HasParseError() && units_doc.IsObject()) {
       units_doc["turnEndsInMs"] = 1;
-      if (game_ended_){
-        units_doc["gameEndedAt"]="seychas";
-        units_doc["turn"]=turn_;
+      if (game_ended_) {
+        units_doc["gameEndedAt"] = "seychas";
+        units_doc["turn"] = turn_;
       }
     }
 
@@ -103,13 +102,13 @@ class DumpApi : public Api {
     if (!file_stream_.is_open()) {
       file_stream_.open(dump_file_, std::ios::in);
       if (!file_stream_.is_open()) {
-        throw std::runtime_error("Could not open dump file");
+        throw std::runtime_error("Could not open dump file: " + dump_file_.string());
       }
     }
 
     std::string line;
-    std::string type;
-    std::string json_value;
+    std::string handle;
+    std::string temp;
 
     while (true) {
       // Parse the last known units JSON string to check the turn number
@@ -121,26 +120,47 @@ class DumpApi : public Api {
         break;
       }
 
-      if (!std::getline(file_stream_, line)) {
+      if (!read_dump_segment("REQUEST", line)) {
         game_ended_ = true;
         break;
       }
 
       std::istringstream stream(line);
-      if (!(stream >> type)) {
-        continue; // Skip invalid lines
+      stream >> temp >> temp >> handle;
+      std::string* segment_json_ptr = nullptr;
+      if (handle == "/play/zombidef/world") {
+        segment_json_ptr = &last_world_json_string_;
+      } else if (handle == "/play/zombidef/units") {
+        segment_json_ptr = &last_units_json_string_;
       }
 
-      json_value = line.substr(type.length() + 1); // Extract JSON part
+      if (!read_dump_segment("RESPONSE", line)) {
+        game_ended_ = true;
+        break;
+      }
 
-      if (type == "world:") {
-        last_world_json_string_ = json_value;
-      } else if (type == "state:") {
-        last_units_json_string_ = json_value;
+      if (!read_dump_segment("~~~~~~~~~~~~~", line, segment_json_ptr)) {
+        game_ended_ = true;
+        break;
       }
     }
   }
 
+  bool read_dump_segment(const std::string& line_flag, std::string line,
+                         std::string* segment = nullptr) {
+    line.clear();
+    std::stringstream segment_data;
+    while (std::getline(file_stream_, line) && line.compare(0, line_flag.size(), line_flag) != 0) {
+      segment_data << line << std::endl;
+    }
+    if (line.compare(0, line_flag.size(), line_flag) != 0) {
+      return false;
+    }
+    if (segment != nullptr) {
+      *segment = segment_data.str();
+    }
+    return true;
+  }
 };
 
 }  // namespace mortido::api

@@ -21,6 +21,7 @@ class Api {
 
   virtual rapidjson::Document get_world() = 0;
   virtual rapidjson::Document get_units() = 0;
+  virtual bool active() = 0;
 };
 
 }  // namespace mortido::api

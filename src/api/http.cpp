@@ -16,16 +16,16 @@ using namespace std::chrono_literals;
 namespace mortido::api {
 
 ParticipateResponse HttpApi::participate() {
-  auto json_response = perform_request(server_url_ + "/play/zombidef/participate", "PUT");
+  auto json_response = perform_request("/play/zombidef/participate", "PUT");
   return ParticipateResponse::from_json(json_response);
 }
 
 rapidjson::Document HttpApi::get_world() {
-  return perform_request(server_url_ + "/play/zombidef/world", "GET");
+  return perform_request("/play/zombidef/world", "GET");
 }
 
 rapidjson::Document HttpApi::get_units() {
-  return perform_request(server_url_ + "/play/zombidef/units", "GET");
+  return perform_request("/play/zombidef/units", "GET");
 }
 
 CommandResponse HttpApi::send_command(const Command &command) {
@@ -68,7 +68,7 @@ CommandResponse HttpApi::send_command(const Command &command) {
   rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
   doc.Accept(writer);
   auto json_response =
-      perform_request(server_url_ + "/play/zombidef/command", "POST", buffer.GetString());
+      perform_request("/play/zombidef/command", "POST", buffer.GetString());
   return CommandResponse::from_json(json_response);
 }
 
@@ -76,7 +76,7 @@ Round HttpApi::get_current_round(const std::string &prev_round) {
   std::optional<Round> next_round;
 
   while (!next_round) {
-    auto json_response = perform_request(server_url_ + "/rounds/zombidef/", "GET");
+    auto json_response = perform_request("/rounds/zombidef/", "GET");
     auto maybe_error = Error::from_json(json_response);
     if (maybe_error) {
       LOG_ERROR("Error [%d] during get_rounds: %s", maybe_error->err_code,
@@ -103,8 +103,9 @@ Round HttpApi::get_current_round(const std::string &prev_round) {
   return *next_round;
 }
 
-rapidjson::Document HttpApi::perform_request(const std::string &url, const std::string &method,
+rapidjson::Document HttpApi::perform_request(const std::string &handle, const std::string &method,
                                              const std::string &body) {
+  std::string url = server_url_ + handle;
   LOG_DEBUG("Request to %s", url.c_str());
   for (size_t attempt = 0; attempt < max_retries_; ++attempt) {
     ensure_rate_limit();
@@ -128,16 +129,16 @@ rapidjson::Document HttpApi::perform_request(const std::string &url, const std::
       }
       request.perform();
       auto result = response_stream.str();
-      LOG_DEBUG("Request to '%s' with data='%s' result='%s'", url.c_str(), body.c_str(),
-                result.c_str());
-
       long http_code = curlpp::infos::ResponseCode::get(request);
       if (http_code != 200) {
         LOG_WARN("%s HTTP response code: %ld result: %s", url.c_str(), http_code, result.c_str());
         if (http_code == 429) {
+          // RPS limit
           continue;
         }
       }
+
+      dump_request(handle,method,body,http_code,result);
 
       rapidjson::Document document;
       rapidjson::ParseResult parse_result = document.Parse(result.c_str());
@@ -146,12 +147,6 @@ rapidjson::Document HttpApi::perform_request(const std::string &url, const std::
                   rapidjson::GetParseError_En(parse_result.Code()), parse_result.Offset());
         continue;
       }
-
-      if (document.HasMember("errCode") && document["errCode"].IsInt() &&
-          document["errCode"].GetInt() == 24) {
-        continue;
-      }
-
       return document;
     } catch (curlpp::RuntimeError &e) {
       LOG_WARN("Runtime error on request to %s attempt %zu: %s", url.c_str(), attempt + 1,
@@ -163,6 +158,46 @@ rapidjson::Document HttpApi::perform_request(const std::string &url, const std::
 
   LOG_ERROR("Request was not executed %s", url.c_str());
   throw ApiError("Request was not executed");
+}
+
+void HttpApi::ensure_rate_limit() {
+  auto now = std::chrono::steady_clock::now();
+  if (request_times_.size() < max_rps_) {
+    request_times_.push(now);
+    return;
+  }
+
+  auto oldest_request = request_times_.front();
+  auto time_since_oldest_request = duration_cast<std::chrono::milliseconds>(now - oldest_request);
+  if (time_since_oldest_request < std::chrono::seconds(1)) {
+    auto delay_time =
+        std::chrono::seconds(1) - time_since_oldest_request + std::chrono::milliseconds(10);
+    std::this_thread::sleep_for(delay_time);
+  }
+
+  request_times_.push(now);
+  request_times_.pop();
+}
+
+void HttpApi::dump_request(const std::string &handle, const std::string &method,
+                           const std::string &request_data, long http_code,
+                           const std::string &response_data) {
+  if (dump_file_name_.empty()) {
+    return;
+  }
+  if (!dump_file_.is_open()) {
+    dump_file_.open(dump_file_name_, std::ios_base::app);
+    if (!dump_file_.is_open()) {
+      LOG_ERROR("Could not open error dump file for writing: %s", dump_file_name_.c_str());
+      return;
+    }
+  }
+
+  dump_file_ << "REQUEST " << method << " " << handle << std::endl;
+  dump_file_ << request_data << std::endl;
+  dump_file_ << "RESPONSE " << http_code << std::endl;
+  dump_file_ << response_data << std::endl;
+  dump_file_ << "~~~~~~~~~~~~~" << std::endl;
 }
 
 }  // namespace mortido::api
