@@ -92,7 +92,7 @@ class Game {
 
     LOG_INFO("Game %s started, team: %s", id_.c_str(), team_name_.c_str());
     load_world();
-    while (!state_.game_ended_at && state_.turn < 450) {  // TODO: ended by surviving...
+    while (!state_.game_ended_at && state_.turn < 449) {  // TODO: ended by surviving...
       if (!load_units()) {
         return;
       }
