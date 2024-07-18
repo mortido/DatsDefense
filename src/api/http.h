@@ -42,7 +42,7 @@ class HttpApi : public Api {
   CommandResponse send_command(const Command &command) override;
   Round get_current_round(const std::string &prev_round) override;
   bool active() override { return true; }
-  void set_dump_file(std::filesystem::path file_name) {
+  void set_dump_file(std::filesystem::path file_name) override{
     if (dump_file_.is_open()) {
       dump_file_.close();
     }

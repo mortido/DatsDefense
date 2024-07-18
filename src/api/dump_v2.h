@@ -146,7 +146,7 @@ class DumpApi : public Api {
     }
   }
 
-  bool read_dump_segment(const std::string& line_flag, std::string line,
+  bool read_dump_segment(const std::string& line_flag, std::string& line,
                          std::string* segment = nullptr) {
     line.clear();
     std::stringstream segment_data;

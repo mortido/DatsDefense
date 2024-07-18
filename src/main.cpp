@@ -18,7 +18,7 @@ constexpr const char *kServerURL = "https://games-test.datsteam.dev";
 
 const std::filesystem::path kDataDir = "data";
 constexpr const char *kTokenFile = "token.txt";
-constexpr const char *kReplayFile = "game_test-map1-30.dump";
+constexpr const char *kReplayFile = "test-map2-45.dump";
 constexpr const char *kMainDumpFile = "main.dump";
 constexpr const char *kMainLogFile = "main.log";
 
@@ -53,8 +53,8 @@ int main(int argc, char *argv[]) {
   loguru::g_flush_interval_ms = 0;  // unbuffered
   loguru::add_file((kDataDir / kMainLogFile).c_str(), loguru::Append, loguru::Verbosity_WARNING);
 
-  mortido::api::HttpApi api(kServerURL, read_token(), kMaxRPS, 30);
-  //  mortido::api::DumpApi api(kReplayFile);
+  //  mortido::api::HttpApi api(kServerURL, read_token(), kMaxRPS, 30);
+  mortido::api::DumpApi api(kDataDir / kReplayFile);
   std::string prev_round_name;
 
   while (api.active()) {
@@ -77,14 +77,14 @@ int main(int argc, char *argv[]) {
 
     LOG_INFO("Game %s has started.", round.name.c_str());
     api.set_dump_file((kDataDir / round.name).replace_extension(".dump"));
-    const auto *game_log_file = (kDataDir / round.name).replace_extension(".log").c_str();
-    loguru::add_file(game_log_file, loguru::Append, loguru::Verbosity_MAX);
+    const auto game_log_file = (kDataDir / round.name).replace_extension(".log");
+    loguru::add_file(game_log_file.c_str(), loguru::Append, loguru::Verbosity_MAX);
     mortido::game::Game game(round.name, api);
     while (!game.run()) {
       LOG_ERROR("GAME %s FINISHED WITH NEGATIVE RESULT, RELOADING...", round.name.c_str());
     }
     LOG_INFO("GAME %s FINISHED", round.name.c_str());
-    loguru::remove_callback(game_log_file);
+    loguru::remove_callback(game_log_file.c_str());
     loguru::flush();
     prev_round_name = round.name;
   }

@@ -2,9 +2,10 @@
 #include <rapidjson/document.h>
 
 #include <exception>
+#include <filesystem>
 
-#include "responses.h"
 #include "requests.h"
+#include "responses.h"
 
 namespace mortido::api {
 
@@ -22,6 +23,7 @@ class Api {
   virtual rapidjson::Document get_world() = 0;
   virtual rapidjson::Document get_units() = 0;
   virtual bool active() = 0;
+  virtual void set_dump_file(std::filesystem::path) {}
 };
 
 }  // namespace mortido::api
