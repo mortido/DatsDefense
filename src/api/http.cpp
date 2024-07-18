@@ -106,8 +106,9 @@ Round HttpApi::get_current_round(const std::string &prev_round) {
 rapidjson::Document HttpApi::perform_request(const std::string &handle, const std::string &method,
                                              const std::string &body) {
   std::string url = server_url_ + handle;
-  LOG_DEBUG("Request to %s", url.c_str());
+
   for (size_t attempt = 0; attempt < max_retries_; ++attempt) {
+    LOG_DEBUG("Request to %s attempt %zu", url.c_str(), attempt);
     ensure_rate_limit();
 
     try {
