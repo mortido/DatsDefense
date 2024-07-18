@@ -19,8 +19,15 @@ constexpr const char *kServerURL = "https://games-test.datsteam.dev";
 const std::filesystem::path kDataDir = "data";
 constexpr const char *kTokenFile = "token.txt";
 constexpr const char *kReplayFile = "test-map2-45.dump";
-constexpr const char *kMainDumpFile = "main.dump";
-constexpr const char *kMainLogFile = "main.log";
+
+std::string get_run_id() {
+  auto now = std::chrono::system_clock::now();
+  auto now_time_t = std::chrono::system_clock::to_time_t(now);
+
+  std::ostringstream oss;
+  oss << std::put_time(std::localtime(&now_time_t), "%Y-%m-%d_%H-%M-%S");
+  return oss.str();
+}
 
 std::string read_token() {
   std::string token;
@@ -51,14 +58,15 @@ std::string format_time_point_as_local_time(const std::chrono::system_clock::tim
 int main(int argc, char *argv[]) {
   loguru::init(argc, argv);
   loguru::g_flush_interval_ms = 0;  // unbuffered
-  loguru::add_file((kDataDir / kMainLogFile).c_str(), loguru::Append, loguru::Verbosity_WARNING);
+  std::string run_id = get_run_id();
+  loguru::add_file((kDataDir / (run_id + ".log")).c_str(), loguru::Append, loguru::Verbosity_WARNING);
 
   //  mortido::api::HttpApi api(kServerURL, read_token(), kMaxRPS, 30);
   mortido::api::DumpApi api(kDataDir / kReplayFile);
   std::string prev_round_name;
 
   while (api.active()) {
-    api.set_dump_file(kDataDir / kMainDumpFile);
+    api.set_dump_file(kDataDir / (run_id + ".dump"));
     auto round = api.get_current_round(prev_round_name);
     LOG_INFO("ROUND %s DURATION: %.1f min", round.name.c_str(),
              static_cast<double>(round.duration) / 60.0);
